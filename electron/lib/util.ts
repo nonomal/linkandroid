@@ -33,7 +33,7 @@ export const StrUtil = {
     },
     hashCode(str: string, length: number = 8) {
         let hash = 0
-        if (str.length === 0) return hash
+        if (str.length === 0) return hash + ''
         for (let i = 0; i < str.length; i++) {
             const char = str.charCodeAt(i)
             hash = ((hash << 5) - hash) + char
@@ -161,5 +161,111 @@ export const ImportUtil = {
         const backend = await import(/* @vite-ignore */ `${cjsPath}?t=${md5}`)
         // console.log('loadCommonJs', `${cjsPath}?t=${md5}`)
         return backend.default
+    }
+}
+
+export const MemoryCacheUtil = {
+    pool: {} as {
+        [key: string]: {
+            value: any,
+            expire: number,
+        }
+    },
+    _gc() {
+        const now = TimeUtil.timestamp()
+        for (const key in this.pool) {
+            if (this.pool[key].expire < now) {
+                delete this.pool[key]
+            }
+        }
+    },
+    async remember(key: string, callback: () => Promise<any>, ttl: number = 60) {
+        if (this.pool[key] && this.pool[key].expire > TimeUtil.timestamp()) {
+            return this.pool[key].value
+        }
+        const value = await callback()
+        this.pool[key] = {
+            value,
+            expire: TimeUtil.timestamp() + ttl,
+        }
+        this._gc()
+        return value
+    },
+    get(key: string) {
+        if (this.pool[key] && this.pool[key].expire > TimeUtil.timestamp()) {
+            return this.pool[key].value
+        }
+        this._gc()
+        return null
+    },
+    set(key: string, value: any, ttl: number = 60) {
+        this.pool[key] = {
+            value,
+            expire: TimeUtil.timestamp() + ttl,
+        }
+        this._gc()
+    },
+    forget(key: string) {
+        delete this.pool[key]
+    }
+}
+
+
+export const ShellUtil = {
+    quotaPath(p: string) {
+        return `"${p}"`
+    }
+}
+
+
+export const VersionUtil = {
+    /**
+     * 检测版本是否匹配
+     * @param v string
+     * @param match string 如 * 或 >=1.0.0 或 >1.0.0 或 <1.0.0 或 <=1.0.0 或 1.0.0
+     */
+    match(v: string, match: string) {
+        if (match === '*') {
+            return true
+        }
+        if (match.startsWith('>=') && this.ge(v, match.substring(2))) {
+            return true
+        }
+        if (match.startsWith('>') && this.gt(v, match.substring(1))) {
+            return true
+        }
+        if (match.startsWith('<=') && this.le(v, match.substring(2))) {
+            return true
+        }
+        if (match.startsWith('<') && this.lt(v, match.substring(1))) {
+            return true
+        }
+        return this.eq(v, match)
+    },
+    compare(v1: string, v2: string) {
+        const v1Arr = v1.split('.')
+        const v2Arr = v2.split('.')
+        for (let i = 0; i < v1Arr.length; i++) {
+            const v1Num = parseInt(v1Arr[i])
+            const v2Num = parseInt(v2Arr[i])
+            if (v1Num > v2Num) {
+                return 1
+            } else if (v1Num < v2Num) {
+                return -1
+            }
+        }
+        return 0
+    },
+    gt(v1: string, v2: string) {
+        return VersionUtil.compare(v1, v2) > 0
+    },
+    ge(v1: string, v2: string) {
+        return VersionUtil.compare(v1, v2) >= 0
+    },
+    lt(v1: string, v2: string) {
+        return VersionUtil.compare(v1, v2) < 0
+    },
+    le: (v1: string, v2: string) => {
+        return VersionUtil.compare(v1, v2) <= 0
     }
 }

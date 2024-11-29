@@ -4,6 +4,8 @@ import {AppRuntime} from "../env";
 import {isMac} from "../../lib/env";
 import {AppPosition} from "./lib/position";
 import {Events} from "../event/main";
+import {ConfigMain} from "../config/main";
+import {CommonConfig} from "../../config/common";
 
 
 const getWindowByName = (name?: string) => {
@@ -151,7 +153,32 @@ ipcMain.handle('app:setClipboardImage', (event, image: string) => {
 })
 
 const isDarkMode = () => {
+    if (!CommonConfig.darkModeEnable) {
+        return false;
+    }
     return nativeTheme.shouldUseDarkColors
+}
+
+const shouldDarkMode = async () => {
+    if (!CommonConfig.darkModeEnable) {
+        return false;
+    }
+    const darkMode = (await ConfigMain.get('darkMode')) || 'auto'
+    if ('dark' === darkMode) {
+        return true
+    } else if ('light' === darkMode) {
+        return false
+    } else if ('auto' === darkMode) {
+        return isDarkMode()
+    }
+    return false
+}
+
+const defaultDarkModeBackgroundColor = async () => {
+    if (await shouldDarkMode()) {
+        return '#17171A'
+    }
+    return '#FFFFFF'
 }
 
 nativeTheme.on('updated', () => {
@@ -167,6 +194,8 @@ export default {
 }
 
 export const AppsMain = {
+    shouldDarkMode,
+    defaultDarkModeBackgroundColor,
     getWindowByName,
     getClipboardText,
     setClipboardText,

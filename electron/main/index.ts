@@ -17,8 +17,15 @@ import {Page} from "../page";
 import {ConfigTray} from "../config/tray";
 import {icnsLogoPath, icoLogoPath, logoPath} from "../config/icon";
 import {isPackaged} from "../lib/env";
+import {executeHooks} from "../lib/hooks";
+import {DevToolsManager} from "../lib/devtools";
+import {AppsMain} from "../mapi/app/main";
 
 const isDummyNew = isDummy
+
+if (process.env['ELECTRON_ENV_PROD']) {
+    DevToolsManager.setEnable(false)
+}
 
 process.on('uncaughtException', (error) => {
     console.error('Uncaught Exception:', error);
@@ -56,7 +63,7 @@ Log.info('LaunchInfo', {
     userData: AppEnv.userData,
 })
 
-function createWindow() {
+async function createWindow() {
     let icon = logoPath
     if (process.platform === 'win32') {
         icon = icoLogoPath
@@ -88,7 +95,7 @@ function createWindow() {
         minHeight: WindowConfig.initHeight,
         width: WindowConfig.initWidth,
         height: WindowConfig.initHeight,
-        backgroundColor: '#f1f5f9',
+        backgroundColor: await AppsMain.defaultDarkModeBackgroundColor(),
         webPreferences: {
             preload: preloadDefault,
             // Warning: Enable nodeIntegration and disable contextIsolation is not secure in production
@@ -105,18 +112,15 @@ function createWindow() {
     AppRuntime.mainWindow.on('closed', () => {
         AppRuntime.mainWindow = null
     })
-    AppRuntime.mainWindow.on('show', () => {
-        AppRuntime.mainWindow.webContents.executeJavaScript(
-            `window.__page && window.__page.hooks && typeof window.__page.hooks.onShow === "function" && window.__page.hooks.onShow()`
-        );
+    AppRuntime.mainWindow.on('show', async () => {
+        await executeHooks(AppRuntime.mainWindow, 'Show')
     });
-    AppRuntime.mainWindow.on('hide', () => {
-        AppRuntime.mainWindow.webContents.executeJavaScript(
-            `window.__page && window.__page.hooks && typeof window.__page.hooks.onHide === "function" && window.__page.hooks.onHide()`
-        );
+    AppRuntime.mainWindow.on('hide', async () => {
+        await executeHooks(AppRuntime.mainWindow, 'Hide')
     });
 
     rendererLoadPath(AppRuntime.mainWindow, 'index.html')
+    DevToolsManager.register('Main', AppRuntime.mainWindow)
 
     AppRuntime.mainWindow.webContents.on('did-finish-load', () => {
         if (hasSplashWindow) {
@@ -130,11 +134,7 @@ function createWindow() {
             }, 1000);
         }
         Page.ready('main')
-        if (WindowConfig.alwaysOpenDevTools) {
-            AppRuntime.mainWindow.webContents.openDevTools({
-                mode: 'detach',
-            })
-        }
+        DevToolsManager.autoShow(AppRuntime.mainWindow)
     })
     AppRuntime.mainWindow.webContents.setWindowOpenHandler(({url}) => {
         if (url.startsWith('https:')) shell.openExternal(url)
@@ -159,7 +159,7 @@ app.whenReady()
         app.on('browser-window-created', (_, window) => {
             optimizer.watchWindowShortcuts(window)
         })
-        createWindow()
+        createWindow().then()
     })
 
 app.on('will-quit', () => {
@@ -183,12 +183,12 @@ app.on('second-instance', () => {
 app.on('activate', () => {
     const allWindows = BrowserWindow.getAllWindows()
     if (allWindows.length) {
-        if (!allWindows[0].isVisible()) {
-            allWindows[0].show()
+        if (!AppRuntime.mainWindow.isVisible()) {
+            AppRuntime.mainWindow.show()
         }
-        allWindows[0].focus()
+        AppRuntime.mainWindow.focus()
     } else {
-        createWindow()
+        createWindow().then()
     }
 })
 

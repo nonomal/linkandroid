@@ -15,13 +15,10 @@ onBeforeMount(() => {
     platformName.value = window.$mapi?.app?.platformName() as any
 })
 
-onMounted(() => {
-    // document.body.setAttribute('arco-theme', 'dark')
-})
 </script>
 <template>
     <div class="window-container">
-        <div class="window-header flex h-10 items-center border-b border-solid border-gray-200 dark:border-gray-600">
+        <div class="window-header flex h-10 items-center border-b border-solid border-gray-200 dark:border-gray-800">
             <div class="window-header-title flex-grow flex items-center">
                 <div class="pl-2 py-2">
                     <img src="/logo.svg" class="w-4 t-4"/>
@@ -32,11 +29,11 @@ onMounted(() => {
             </div>
             <div class="p-1 leading-4">
                 <div class="inline-block w-6 h-6 leading-6 cursor-pointer hover:text-primary mr-1"
-                     @click="$mapi.app.windowMin">
+                     @click="$mapi.app.windowMin()">
                     <i class="iconfont text-sm icon-min"></i>
                 </div>
                 <div class="inline-block w-6 h-6 leading-6 cursor-pointer hover:text-primary mr-1"
-                     @click="$mapi.app.windowMax">
+                     @click="$mapi.app.windowMax()">
                     <i class="iconfont text-sm icon-max"></i>
                 </div>
                 <div class="inline-block w-6 h-6 leading-6 cursor-pointer hover:text-red-500"
